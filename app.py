@@ -1,154 +1,281 @@
-"""Streamlit app to generate Tweets."""
-
-# Import from standard library
 import logging
+import json
+from pathlib import Path
 from math import ceil, floor
-import random
-import re
-
-# Import from 3rd party libraries
+from dataclasses import dataclass
 import streamlit as st
-import streamlit.components.v1 as components
-import streamlit_analytics
-import pickledb
 
-# Configure logger
-logging.basicConfig(format="\n%(asctime)s\n%(message)s", level=logging.INFO, force=True)
+# --- Data Models Configuration ---
 
-# Configure Streamlit page and state
-st.set_page_config(page_title="CompteGPU", page_icon="💻")
+@dataclass
+class GpuConfig:
+    """Represents the configuration of a GPU type."""
+    display_name: str
+    vram_gb: int
+    flops_tflops: dict[str, float]
+    meta: dict # For extra info like cost, sources, etc.
 
-# Force responsive layout for columns also on mobile
-st.write(
-    """<style>
-    [data-testid="column"] {
-        width: calc(50% - 1rem);
-        flex: 1 1 calc(50% - 1rem);
-        min-width: calc(50% - 1rem);
-    }
-    </style>""",
-    unsafe_allow_html=True,
-)
+@dataclass
+class ModelConfig:
+    """Represents the configuration of a language model."""
+    display_name: str
+    size_b_params: float
+    embed_dim: int
+    meta: dict
 
-# Render Streamlit page
-#streamlit_analytics.start_tracking()
-st.title("Calculer le nombre de GPU nécessaire pour inférence LLM")
-st.markdown(
-"""
-Ce projet vous aide à calculer le nombre de GPU nécessaires pour faire tourner des modèles de langage (LLM) en inférence.
+# --- Constants ---
+BYTES_PER_PARAM = {"8 bits (int8/fp8)": 1, "16 bits (fp16)": 2, "32 bits (fp32)": 4}
 
-Les LLM comme GPT-4 nécessitent beaucoup de ressources de calcul. Cette application vous permet d'estimer rapidement vos besoins en GPU en fonction de différents paramètres :
+# --- Configuration Loading ---
 
-- Taille du modèle (paramètres) en milliards
-- Précision du modèle (8bits, 16 bits ou 32 bits)
-- Mémoire VRAM par GPU en Go
-- FLOPS par GPU (en Teraflops)
-- FLOPs par token (en TeraFLOPs)
-- Nombre d'utilisateurs simultanés
-- Débit par utilisateur (en tokens par seconde)
-- Batch maximal (ex : 10 requêtes par batch)
-//- Latence maximale acceptable (en ms)
+@st.cache_data
+def load_app_config():
+    """
+    Loads GPU and Model configurations from JSON files in the 'db' directory.
+    Uses dataclasses to structure the loaded data.
+    """
+    #path is ./db/gpu.json and ./db/models.json
+    db_path = Path(__file__).parent / "db"
+    config = {"gpus": {}, "models": {}}
 
+    # Load GPUs
+    try:
+        with open(db_path / "gpu.json", "r") as f:
+            gpu_data = json.load(f)
+            for key, values in gpu_data.items():
+                config["gpus"][key] = GpuConfig(**values)
+    except FileNotFoundError:
+        st.error(f"Error: `db/gpu.json` not found. Please create it.")
+        return None
+    except Exception as e:
+        st.error(f"Error parsing `db/gpu.json`: {e}")
+        return None
 
-//- La taille du modèle que vous souhaitez utiliser
-//- Le nombre de requêtes par seconde à traiter
-//- La latence maximale acceptable
-//- Votre budget
+    # Load Models
+    try:
+        with open(db_path / "models.json", "r") as f:
+            model_data = json.load(f)
+            for key, values in model_data.items():
+                config["models"][key] = ModelConfig(**values)
+    except FileNotFoundError:
+        st.error(f"Error: `db/models.json` not found. Please create it.")
+        return None
+    except Exception as e:
+        st.error(f"Error parsing `db/models.json`: {e}")
+        return None
+        
+    return config
 
-Remplissez simplement le formulaire ci-dessous avec vos besoins et nous vous fournirons une estimation du nombre de GPU requis ainsi que les coûts associés.
+# --- Calculation Logic Functions ---
 
-"""
-)
+def calculate_memory_constraint(
+    model: ModelConfig,
+    gpu: GpuConfig,
+    precision: str,
+    max_batch_size: int,
+    tokens_per_request: int,
+) -> float:
+    """
+    Calculates the number of GPUs required to satisfy the VRAM memory constraint.
 
-#renting cost Outscale A100 80gb = 2k€/mois donc 2.74€/h HT
-#chez scaleway H100 80gb = 2.73€/h
-#outscale prix A100 80gb = 3.6€/h (HT probablement)
-#on a acheté 16 H100 80gb pour à peu près 30k€ l'unité (31875€).
-#censé être rentabilisé en 16 mois (1 an et 4 mois)
-memoire_gpu_dict = {"A100_40gb": 40, "H100_80gb": 80}
-flops_gpu_dict = {
-    "A100_40gb": 
-    {
-        "8 bits (int8/fp8)": 624,
-        "16 bits (fp16)": 312,
-        "32 bits (fp32)": 19.5 #(mais TF32 156)
-    }, 
-    "H100_80gb": #attention différence entre SXM et NVL (SXM plus rapide)
-    {
-        "8 bits (int8/fp8)": 3341, #NVL et SXM=3958 #fp8
-        "16 bits (fp16)": 1671, #NVL et SXM=1979
-        "32 bits (fp32)": 60, #SXM = 67 mais TF32 835 et SXM = 989 
-    }
-}
-#attention car la vitesse GPU dépend en fait aussi de la précision du modèle TODO
+    Returns:
+        The number of GPUs dictated by memory requirements.
+    """
+    bytes_per_param = BYTES_PER_PARAM[precision]
+    bytes_to_gb = 2**30
 
-methode = st.selectbox(label="Méthode de calcul", options=["Batching", "Multi-modèle"])
-if methode == "Batching":
-    which_model = st.selectbox(label="Quel modèle ?", options=["Llama-3.1-8B-Instruct", "Llama-3.1-70B-Instruct"])
-    taille_modele = st.number_input(label="Taille du modèle (en milliards)", value=70)
-    precision_modele = st.selectbox(label="Précision du modèle", options=["8 bits (int8/fp8)", "16 bits (fp16)", "32 bits (fp32)"]) #en fait les modeles sont en fp16 par defaut
-    quel_gpu = st.selectbox(label="Quel GPU ?", options=["A100_40gb", "H100_80gb"]) #, "A1000", "A800", "A4000"])
-    #memoire_gpu = st.number_input(label="Mémoire VRAM par GPU (en Go)", value=80)
-    #flops_gpu = st.number_input(label="FLOPS par GPU (en Teraflops)", value=19.5)
-    #flops_token = st.number_input(label="FLOPs par token (en TeraFLOPs)", value=70*2*10**9/10**12)
-    utilisateurs_simultanes = st.number_input(label="Nombre d'utilisateurs simultanés", value=100)
-    debit_utilisateur = st.number_input(label="Débit par utilisateur (en tokens par seconde)", value=10)
-    batch_maximal = st.number_input(label="Batch maximal (ex : 10 requêtes par batch)", value=10)
-    MAX_TOKEN_BATCH = st.number_input(label="Nombre de tokens par requête dans le batch", value=1000)
-    #latence_maximale = st.number_input(label="Latence maximale acceptable (en ms)", value=100)
-else:
-    taille_modele = st.number_input(label="Taille du modèle (en milliards)", value=70)
-    precision_modele = st.selectbox(label="Précision du modèle", options=["8 bits (int8/fp8)", "16 bits (fp16)", "32 bits (fp32)"])
-    memoire_gpu = st.number_input(label="Mémoire VRAM par GPU (en Go)", value=80)
-    flops_gpu = st.number_input(label="FLOPS par GPU (en Teraflops)", value=19.5)
-    flops_token = st.number_input(label="FLOPs par token (en TeraFLOPs)", value=70*2*10**9/10**12)
-    utilisateurs_simultanes = st.number_input(label="Nombre d'utilisateurs simultanés", value=100)
-    debit_utilisateur = st.number_input(label="Débit par utilisateur (en tokens par seconde)", value=10)
-    #batch_maximal = st.number_input(label="Batch maximal (ex : 10 requêtes par batch)", value=10)
-    #latence_maximale = st.number_input(label="Latence maximale acceptable (en ms)", value=100)
+    # Memory for the model weights
+    model_mem_gb = model.size_b_params * bytes_per_param
 
-precision = {"8 bits (int8/fp8)": 1, "16 bits (fp16)": 2, "32 bits (fp32)": 4}
-#MAX_TOKEN_BATCH = 1000
+    # Memory for the activation cache (approximate)
+    # Formula: batch_size * seq_len * hidden_dim * bytes/param
+    activations_mem_gb = (
+        max_batch_size * tokens_per_request * model.embed_dim * bytes_per_param
+    ) / bytes_to_gb
 
-dim_embedding_dic = {"Llama-3.1-8B-Instruct": 4096, "Llama-3.1-70B-Instruct": 128000}
+    # Memory for the KV Cache (Llama-style rule of thumb)
+    # Formula: 320 * seq_len * batch_size -> in MB, so / 1024 to convert to GB
+    kv_cache_mem_gb = (320 * tokens_per_request * max_batch_size) / (2**20) / 1024
 
-# lancer le calcul
-st.session_state.calcul_lance = st.button(label="Calculer", type="primary")
-if st.session_state.calcul_lance:
-    # TODO : faire le calcul
-    if methode == "Batching":  
-        memoire_gpu = memoire_gpu_dict[quel_gpu]
-        flops_gpu = flops_gpu_dict[quel_gpu][precision_modele]
-        flops_token = taille_modele * 2 * (10**9) / (10**12) #en TeraFLOPs
-        #todo : intégrer kv caching 
-        memoire_modele = taille_modele * precision[precision_modele] #en Go
-        dim_embedding = dim_embedding_dic[which_model] #4096 #TODO
-        memoire_tokens = batch_maximal * MAX_TOKEN_BATCH * dim_embedding * precision[precision_modele] / (2**30) #en Go
-        memoire_kv = 320 * MAX_TOKEN_BATCH * batch_maximal / (2**20) #TODO la formule actuelle est pour llama2
-        memoire_allouee_batch = memoire_modele + memoire_tokens + memoire_kv
-        #attention à tout bien compter (activations etc)
-        memory_constraint = memoire_allouee_batch / memoire_gpu
-        #temps_pour_un_token = flops_token / flops_gpu
-        combien_de_tours = ceil(utilisateurs_simultanes / batch_maximal)
-        quantite_de_calcul_pour_un_tour_un_token = flops_token * batch_maximal
-        temps_pour_un_tour_un_token = quantite_de_calcul_pour_un_tour_un_token / flops_gpu
-        debit_config = 1/temps_pour_un_tour_un_token
-        if(debit_utilisateur > debit_config):
-            print("Batch size trop grand")
-            nombre_gpu_necessaire = -1
-        else:
-            #idée naive : utiliser combien_de_tours GPU
-            #amélioration : faire tourner un gpu sur plusieurs tours tant qu'on tient dans le débit cible
-            speed_constraint = combien_de_tours / floor(debit_config / debit_utilisateur)
-            #speed_constraint = utilisateurs_simultanes * debit_utilisateur / (batch_maximal * (flops_gpu / flops_token))
-            nombre_gpu_necessaire_batching = max(memory_constraint, speed_constraint)
-            nombre_gpu_necessaire = nombre_gpu_necessaire_batching
-    else:
-        nombre_gpu_necessaire_multimodel = utilisateurs_simultanes * debit_utilisateur / ((memoire_gpu / (taille_modele * precision[precision_modele])) *  flops_gpu / flops_token)
-        nombre_gpu_necessaire = nombre_gpu_necessaire_multimodel #max(nombre_gpu_necessaire_batching, nombre_gpu_necessaire_multimodel)
+    total_mem_gb = model_mem_gb + activations_mem_gb + kv_cache_mem_gb
     
-    # affiche le résultat
-    st.write(f"Nombre de GPU nécessaire : {nombre_gpu_necessaire}")
+    logging.info(
+        f"Total memory required: {total_mem_gb:.2f} GB "
+        f"(Model: {model_mem_gb:.2f}, Activations: {activations_mem_gb:.2f}, KV Cache: {kv_cache_mem_gb:.2f})"
+    )
+    
+    return total_mem_gb / gpu.vram_gb
 
 
-#streamlit_analytics.stop_tracking()
+def calculate_speed_constraint(
+    users: int,
+    tps_per_user: int,
+    max_batch_size: int,
+    model: ModelConfig,
+    gpu: GpuConfig,
+    precision: str,
+) -> float:
+    """
+    Calculates the number of GPUs required to satisfy the speed (throughput) constraint.
+
+    Returns:
+        The number of GPUs dictated by speed, or infinity if impossible.
+    """
+    # Theoretical FLOPs to generate one token for this model (in TFLOPs)
+    # Rule of thumb: 2 * N parameters (the '2' is an approximation for matrix operations)
+    flops_per_token = model.size_b_params * 2 * 1e9 / 1e12 # from Giga-params to Tera-flops
+
+    # FLOPs needed to generate one token for each sequence in the batch
+    flops_per_batch_step = flops_per_token * max_batch_size
+
+    # GPU throughput: how many "batch steps" (one token per sequence) can it perform per second?
+    # This is equivalent to the tokens/second/sequence the GPU can generate.
+    gpu_tps_per_sequence = gpu.flops_tflops[precision] / flops_per_batch_step
+
+    logging.info(f"Throughput per GPU: {gpu_tps_per_sequence:.2f} tokens/sec/sequence")
+    
+    # If the GPU's throughput is less than the required per-user throughput, it's impossible.
+    if tps_per_user > gpu_tps_per_sequence:
+        return float("inf")
+
+    # How many "user groups" (of size tps_per_user) can be served on one GPU?
+    # This represents how many batching rounds can be time-multiplexed.
+    rounds_per_gpu = floor(gpu_tps_per_sequence / tps_per_user)
+    if not rounds_per_gpu:
+        return float("inf")
+
+    # Total number of batches to process to serve all users
+    total_rounds_needed = ceil(users / max_batch_size)
+
+    # The number of GPUs is the total rounds needed divided by the rounds one GPU can handle.
+    return total_rounds_needed / rounds_per_gpu
+
+
+# --- Streamlit User Interface ---
+
+def main():
+    """Main function for the Streamlit application."""
+    st.set_page_config(page_title="GpuCalculator", page_icon="💻")
+
+    # Database of available configurations
+    APP_CONFIG = load_app_config()
+    if not APP_CONFIG:
+        st.error("Error: Failed to load configuration. Exiting.")
+        st.stop()
+    
+    st.title("LLM Inference GPU Calculator")
+    st.markdown(
+        "Estimate the number of GPUs required to serve a Large Language Model (LLM) "
+        "using a *batching* strategy."
+    )
+    st.markdown("---")
+
+    # --- Section 1: Define Your Workload ---
+    st.subheader("1. Define Your Workload")
+    users = st.number_input(
+        label="Number of Concurrent Users",
+        min_value=1,
+        step=1,
+        value=100,
+        help="The total number of users the system must serve simultaneously.",
+    )
+    tps_per_user = st.number_input(
+        label="Throughput per User (tokens/s)",
+        min_value=1,
+        step=1,
+        value=10,
+        help="The required token generation speed for each user.",
+    )
+
+    # --- Section 2: Select Your Model ---
+    st.subheader("2. Select Your Model")
+    model_key = st.selectbox(
+        label="Choose a Model",
+        options=list(APP_CONFIG["models"].keys()),
+        format_func=lambda key: APP_CONFIG["models"][key].display_name,
+        help="Choosing the model automatically determines its size."
+    )
+    selected_model = APP_CONFIG["models"][model_key]
+        
+    precision = st.selectbox(
+        label="Quantization Precision",
+        options=list(BYTES_PER_PARAM.keys()),
+        help="The numerical precision of the model's weights. Lower precision reduces memory usage but may affect quality.",
+    )
+    tokens_per_req = st.number_input(
+        label="Context Size (tokens/request)",
+        min_value=1,
+        step=1,
+        value=2048,
+        help="The maximum sequence length (context + generation) to be processed per request.",
+    )
+
+    # --- Section 3: Choose Hardware and Batching Strategy ---
+    st.subheader("3. Choose Hardware and Batching Strategy")
+    gpu_key = st.selectbox(
+        label="Choose a GPU Type",
+        options=list(APP_CONFIG["gpus"].keys()),
+        format_func=lambda key: APP_CONFIG["gpus"][key].display_name,
+        help="The hardware on which the model will run."
+    )
+    selected_gpu = APP_CONFIG["gpus"][gpu_key]
+    max_batch = st.number_input(
+        label="Maximum Batch Size",
+        min_value=1,
+        step=1,
+        value=8,
+        help="The number of user requests processed simultaneously in a single batch.",
+    )
+
+    st.markdown("---")
+
+    # --- Calculation and Results Display ---
+    if st.button("🚀 Calculate Required GPUs", type="primary", use_container_width=True):
+        
+        mem_constraint = calculate_memory_constraint(
+            model=selected_model,
+            gpu=selected_gpu,
+            precision=precision,
+            max_batch_size=max_batch,
+            tokens_per_request=tokens_per_req,
+        )
+
+        speed_constraint = calculate_speed_constraint(
+            users=users,
+            tps_per_user=tps_per_user,
+            max_batch_size=max_batch,
+            model=selected_model,
+            gpu=selected_gpu,
+            precision=precision,
+        )
+        
+        if speed_constraint == float("inf"):
+            st.error(
+                "**Impossible Configuration.** The requested throughput per user is too high for a single GPU "
+                "with the current setup. Try reducing the batch size, choosing a more powerful GPU, "
+                "or lowering the required throughput."
+            )
+        else:
+            required_gpus = max(mem_constraint, speed_constraint)
+            
+            st.success(f"### Estimated Number of GPUs Required: **{ceil(required_gpus)}**")
+            
+            st.write("The calculation is based on the maximum of the following two constraints:")
+            
+            st.info(
+                f"**Memory Constraint:** `{mem_constraint:.2f}` GPUs\n\n"
+                "This is the minimum number of GPUs required to store the model and its caches (activations, KV cache)."
+            )
+            st.info(
+                f"**Speed Constraint:** `{speed_constraint:.2f}` GPUs\n\n"
+                "This is the number of GPUs required to meet the token throughput demand for all users."
+            )
+            
+            if mem_constraint > speed_constraint:
+                st.warning("Note: The bottleneck is **VRAM Memory**. The GPUs will be underutilized in terms of computation (FLOPS).")
+            else:
+                 st.warning("Note: The bottleneck is the **computation speed (FLOPS)**. The available VRAM on the GPUs will be more than sufficient.")
+
+
+if __name__ == "__main__":
+    main()
