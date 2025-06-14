@@ -1,0 +1,71 @@
+{
+    "app_title": "Calculateur de GPU pour Inférence LLM",
+    "app_description": "Estimez le nombre de GPUs nécessaires pour servir un modèle de langage (LLM) en utilisant différentes stratégies de traitement par lots.",
+    
+    "section_workload": "1. Définir votre charge de travail",
+    "label_concurrent_users": "Nombre d'utilisateurs simultanés",
+    "help_concurrent_users": "Le nombre total d'utilisateurs que le système doit servir simultanément.",
+    "label_throughput_per_user": "Débit par utilisateur (tokens/s)",
+    "help_throughput_per_user": "La vitesse de génération de tokens requise pour chaque utilisateur.",
+    "label_show_latency": "Afficher les calculs de latence",
+    "label_target_ttft": "Temps cible jusqu'au premier token (ms)",
+    "help_target_ttft": "Temps maximum acceptable pour recevoir le premier token.",
+    
+    "section_model": "2. Sélectionner votre modèle",
+    "label_choose_model": "Choisir un modèle",
+    "help_choose_model": "Le choix du modèle détermine automatiquement sa taille.",
+    "label_quantization": "Précision de quantification",
+    "help_quantization": "La précision numérique des poids du modèle. Une précision plus faible réduit l'utilisation mémoire mais peut affecter la qualité.",
+    "label_context_size": "Taille totale du contexte (tokens)",
+    "help_context_size": "La longueur maximale de séquence (prompt + génération) à traiter par requête.",
+    "label_advanced_prefill": "Avancé : Prefill vs Decode",
+    "label_prompt_ratio": "Tokens de prompt (%)",
+    "help_prompt_ratio": "Pourcentage de tokens en entrée (prefill) vs générés (decode).",
+    "text_prompt_tokens": "Prompt : {prompt_tokens} tokens, Générés : {generated_tokens} tokens",
+    "text_effective_tokens": "Tokens effectifs pour le débit : {effective_tokens:.0f}",
+    
+    "section_hardware": "3. Choisir le matériel et la stratégie de traitement",
+    "label_choose_gpu": "Choisir un type de GPU",
+    "help_choose_gpu": "Le matériel sur lequel le modèle sera exécuté.",
+    "label_batch_size": "Taille maximale du batch",
+    "help_batch_size": "Le nombre de requêtes utilisateur traitées simultanément dans un seul batch.",
+    "label_batching_strategy": "Stratégie de traitement par lots",
+    "help_batching_strategy": "Différentes stratégies pour traiter les requêtes. Le traitement continu est le plus efficace.",
+    "option_static_batching": "Traitement statique",
+    "option_continuous_batching": "Traitement continu",
+    "option_dynamic_batching": "Traitement dynamique",
+    
+    "label_advanced_settings": "Paramètres avancés",
+    "label_memory_overhead": "Surcharge mémoire (%)",
+    "help_memory_overhead": "Mémoire supplémentaire pour le framework (vLLM, TGI, etc.), les kernels CUDA et les buffers.",
+    
+    "button_calculate": "🚀 Calculer les GPUs requis",
+    
+    "error_config_load": "Erreur : Impossible de charger la configuration. Arrêt.",
+    "error_gpu_json_not_found": "Erreur : `db/gpu.json` introuvable. Veuillez le créer.",
+    "error_gpu_json_parse": "Erreur lors de l'analyse de `db/gpu.json` : {error}",
+    "error_models_json_not_found": "Erreur : `db/models.json` introuvable. Veuillez le créer.",
+    "error_models_json_parse": "Erreur lors de l'analyse de `db/models.json` : {error}",
+    
+    "warning_model_too_large": "⚠️ **Attention** : Ce modèle ({model_mem:.1f} GB) ne tient pas sur un seul {gpu_name} ({gpu_vram} GB VRAM). Vous aurez besoin du parallélisme de modèle ou d'un GPU plus grand.",
+    "error_impossible_config": "**Configuration impossible.** Le débit demandé par utilisateur est trop élevé pour un seul GPU avec la configuration actuelle. Essayez de réduire la taille du batch, choisir un GPU plus puissant, ou réduire le débit requis.",
+    
+    "success_gpus_required": "### Nombre estimé de GPUs requis : **{gpu_count}**",
+    "text_calculation_based_on": "Le calcul est basé sur le maximum des deux contraintes suivantes :",
+    "info_memory_constraint": "**Contrainte mémoire :** `{constraint:.2f}` GPUs\n\nC'est le nombre minimum de GPUs requis pour stocker le modèle et ses caches.",
+    "info_speed_constraint": "**Contrainte vitesse :** `{constraint:.2f}` GPUs\n\nC'est le nombre de GPUs requis pour satisfaire la demande de débit en tokens.",
+    
+    "tip_underutilized": "💡 **Conseil** : Vous utilisez moins d'un GPU de calcul. Envisagez d'utiliser le traitement continu pour une meilleure efficacité ou de servir plusieurs instances du modèle.",
+    "warning_large_batch": "⚠️ **Grande taille de batch** : Les tailles de batch > 32 peuvent entraîner des rendements décroissants et une latence accrue. Envisagez de réduire si la latence est importante.",
+    "warning_memory_bottleneck": "📊 Le goulot d'étranglement est la **mémoire VRAM**. Les GPUs seront sous-utilisés en termes de calcul.",
+    "warning_compute_bottleneck": "⚡ Le goulot d'étranglement est la **vitesse de calcul (FLOPS)**. La VRAM sera sous-utilisée.",
+    
+    "heading_latency_estimates": "### Estimations de latence",
+    "metric_ttft": "Temps jusqu'au premier token",
+    "metric_time_per_token": "Temps par token",
+    "metric_total_generation": "Temps total de génération",
+    "warning_ttft_exceeded": "⏱️ TTFT ({actual_ttft:.1f} ms) dépasse la cible ({target_ttft} ms). Envisagez de réduire la taille du batch ou la longueur du prompt.",
+    
+    "units_ms": "{value:.1f} ms",
+    "units_seconds": "{value:.2f} s"
+  }

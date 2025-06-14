@@ -1,0 +1,71 @@
+{
+    "app_title": "LLM Inference GPU Calculator",
+    "app_description": "Estimate the number of GPUs required to serve a Large Language Model (LLM) using various batching strategies.",
+    
+    "section_workload": "1. Define Your Workload",
+    "label_concurrent_users": "Number of Concurrent Users",
+    "help_concurrent_users": "The total number of users the system must serve simultaneously.",
+    "label_throughput_per_user": "Throughput per User (tokens/s)",
+    "help_throughput_per_user": "The required token generation speed for each user.",
+    "label_show_latency": "Show latency calculations",
+    "label_target_ttft": "Target Time to First Token (ms)",
+    "help_target_ttft": "Maximum acceptable time to receive the first token.",
+    
+    "section_model": "2. Select Your Model",
+    "label_choose_model": "Choose a Model",
+    "help_choose_model": "Choosing the model automatically determines its size.",
+    "label_quantization": "Quantization Precision",
+    "help_quantization": "The numerical precision of the model's weights. Lower precision reduces memory usage but may affect quality.",
+    "label_context_size": "Total Context Size (tokens)",
+    "help_context_size": "The maximum sequence length (prompt + generation) to be processed per request.",
+    "label_advanced_prefill": "Advanced: Prefill vs Decode",
+    "label_prompt_ratio": "Prompt tokens (%)",
+    "help_prompt_ratio": "Percentage of tokens that are input (prefill) vs generated (decode).",
+    "text_prompt_tokens": "Prompt: {prompt_tokens} tokens, Generated: {generated_tokens} tokens",
+    "text_effective_tokens": "Effective tokens for throughput: {effective_tokens:.0f}",
+    
+    "section_hardware": "3. Choose Hardware and Batching Strategy",
+    "label_choose_gpu": "Choose a GPU Type",
+    "help_choose_gpu": "The hardware on which the model will run.",
+    "label_batch_size": "Maximum Batch Size",
+    "help_batch_size": "The number of user requests processed simultaneously in a single batch.",
+    "label_batching_strategy": "Batching Strategy",
+    "help_batching_strategy": "Different strategies for batching requests. Continuous batching is most efficient.",
+    "option_static_batching": "Static Batching",
+    "option_continuous_batching": "Continuous Batching",
+    "option_dynamic_batching": "Dynamic Batching",
+    
+    "label_advanced_settings": "Advanced Settings",
+    "label_memory_overhead": "Memory Overhead (%)",
+    "help_memory_overhead": "Extra memory for the framework (vLLM, TGI, etc.), CUDA kernels, and buffers.",
+    
+    "button_calculate": "🚀 Calculate Required GPUs",
+    
+    "error_config_load": "Error: Failed to load configuration. Exiting.",
+    "error_gpu_json_not_found": "Error: `db/gpu.json` not found. Please create it.",
+    "error_gpu_json_parse": "Error parsing `db/gpu.json`: {error}",
+    "error_models_json_not_found": "Error: `db/models.json` not found. Please create it.",
+    "error_models_json_parse": "Error parsing `db/models.json`: {error}",
+    
+    "warning_model_too_large": "⚠️ **Warning**: This model ({model_mem:.1f} GB) won't fit on a single {gpu_name} ({gpu_vram} GB VRAM). You'll need model parallelism or a larger GPU.",
+    "error_impossible_config": "**Impossible Configuration.** The requested throughput per user is too high for a single GPU with the current setup. Try reducing the batch size, choosing a more powerful GPU, or lowering the required throughput.",
+    
+    "success_gpus_required": "### Estimated Number of GPUs Required: **{gpu_count}**",
+    "text_calculation_based_on": "The calculation is based on the maximum of the following two constraints:",
+    "info_memory_constraint": "**Memory Constraint:** `{constraint:.2f}` GPUs\n\nThis is the minimum number of GPUs required to store the model and its caches.",
+    "info_speed_constraint": "**Speed Constraint:** `{constraint:.2f}` GPUs\n\nThis is the number of GPUs required to meet the token throughput demand.",
+    
+    "tip_underutilized": "💡 **Tip**: You're using less than 1 GPU worth of compute. Consider using Continuous Batching for better efficiency or serving multiple model instances.",
+    "warning_large_batch": "⚠️ **Large batch size**: Batch sizes > 32 may lead to diminishing returns and increased latency. Consider reducing if latency is important.",
+    "warning_memory_bottleneck": "📊 The bottleneck is **VRAM Memory**. The GPUs will be underutilized in terms of computation.",
+    "warning_compute_bottleneck": "⚡ The bottleneck is **computation speed (FLOPS)**. The VRAM will be underutilized.",
+    
+    "heading_latency_estimates": "### Latency Estimates",
+    "metric_ttft": "Time to First Token",
+    "metric_time_per_token": "Time per Token",
+    "metric_total_generation": "Total Generation Time",
+    "warning_ttft_exceeded": "⏱️ TTFT ({actual_ttft:.1f} ms) exceeds target ({target_ttft} ms). Consider reducing batch size or prompt length.",
+    
+    "units_ms": "{value:.1f} ms",
+    "units_seconds": "{value:.2f} s"
+  }

@@ -5,6 +5,49 @@ from math import ceil, floor
 from dataclasses import dataclass
 import streamlit as st
 
+# --- Translation System ---
+
+@st.cache_data
+def load_translations():
+    """Load translation files for different languages."""
+    translations = {}
+    translation_path = Path(__file__).parent / "translations"
+    
+    # Try to load translations, fall back to English if not found
+    for lang_code, lang_file in [("en", "en.json"), ("fr", "fr.json")]:
+        try:
+            with open(translation_path / lang_file, "r", encoding="utf-8") as f:
+                translations[lang_code] = json.load(f)
+        except FileNotFoundError:
+            # If translation file not found, we'll handle it with a fallback
+            pass
+    
+    # If no translations loaded, create minimal English fallback
+    if "en" not in translations:
+        translations["en"] = {
+            "app_title": "LLM Inference GPU Calculator",
+            "app_description": "Estimate the number of GPUs required to serve a Large Language Model (LLM)",
+        }
+    
+    return translations
+
+def get_text(key: str, **kwargs) -> str:
+    """Get translated text for the current language."""
+    lang = st.session_state.get("language", "en")
+    translations = st.session_state.get("translations", {})
+    
+    # Get text from translations or fall back to key
+    text = translations.get(lang, {}).get(key, translations.get("en", {}).get(key, key))
+    
+    # Format with any provided arguments
+    if kwargs:
+        try:
+            text = text.format(**kwargs)
+        except:
+            pass
+    
+    return text
+
 # --- Data Models Configuration ---
 
 @dataclass
@@ -52,10 +95,10 @@ def load_app_config():
             for key, values in gpu_data.items():
                 config["gpus"][key] = GpuConfig(**values)
     except FileNotFoundError:
-        st.error(f"Error: `db/gpu.json` not found. Please create it.")
+        st.error(get_text("error_gpu_json_not_found"))
         return None
     except Exception as e:
-        st.error(f"Error parsing `db/gpu.json`: {e}")
+        st.error(get_text("error_gpu_json_parse", error=str(e)))
         return None
 
     # Load Models
@@ -65,10 +108,10 @@ def load_app_config():
             for key, values in model_data.items():
                 config["models"][key] = ModelConfig(**values)
     except FileNotFoundError:
-        st.error(f"Error: `db/models.json` not found. Please create it.")
+        st.error(get_text("error_models_json_not_found"))
         return None
     except Exception as e:
-        st.error(f"Error parsing `db/models.json`: {e}")
+        st.error(get_text("error_models_json_parse", error=str(e)))
         return None
         
     return config
@@ -290,98 +333,113 @@ def calculate_latency_metrics(
 def main():
     """Main function for the Streamlit application."""
     st.set_page_config(page_title="GpuCalculator", page_icon="💻")
+    
+    # Initialize session state for language if not set
+    if "language" not in st.session_state:
+        st.session_state.language = "en"
+    
+    # Load translations
+    if "translations" not in st.session_state:
+        st.session_state.translations = load_translations()
+    
+    # Language selector in sidebar
+    with st.sidebar:
+        languages = {"en": "🇬🇧 English", "fr": "🇫🇷 Français"}
+        selected_lang = st.selectbox(
+            "Language / Langue",
+            options=list(languages.keys()),
+            format_func=lambda x: languages[x],
+            key="language",
+        )
 
     # Database of available configurations
     APP_CONFIG = load_app_config()
     if not APP_CONFIG:
-        st.error("Error: Failed to load configuration. Exiting.")
+        st.error(get_text("error_config_load"))
         st.stop()
     
-    st.title("LLM Inference GPU Calculator")
-    st.markdown(
-        "Estimate the number of GPUs required to serve a Large Language Model (LLM) "
-        "using various batching strategies."
-    )
+    st.title(get_text("app_title"))
+    st.markdown(get_text("app_description"))
     st.markdown("---")
 
     # --- Section 1: Define Your Workload ---
-    st.subheader("1. Define Your Workload")
+    st.subheader(get_text("section_workload"))
     
     users = st.number_input(
-        label="Number of Concurrent Users",
+        label=get_text("label_concurrent_users"),
         min_value=1,
         step=1,
         value=100,
-        help="The total number of users the system must serve simultaneously.",
+        help=get_text("help_concurrent_users"),
     )
     
     tps_per_user = st.number_input(
-        label="Throughput per User (tokens/s)",
+        label=get_text("label_throughput_per_user"),
         min_value=1,
         step=1,
         value=10,
-        help="The required token generation speed for each user.",
+        help=get_text("help_throughput_per_user"),
     )
     
     # Optional latency requirements
-    show_latency = st.checkbox("Show latency calculations", value=False)
+    show_latency = st.checkbox(get_text("label_show_latency"), value=False)
     if show_latency:
         target_ttft = st.number_input(
-            label="Target Time to First Token (ms)",
+            label=get_text("label_target_ttft"),
             min_value=10,
             value=200,
-            help="Maximum acceptable time to receive the first token.",
+            help=get_text("help_target_ttft"),
         )
 
     # --- Section 2: Select Your Model ---
-    st.subheader("2. Select Your Model")
+    st.subheader(get_text("section_model"))
     model_key = st.selectbox(
-        label="Choose a Model",
+        label=get_text("label_choose_model"),
         options=list(APP_CONFIG["models"].keys()),
         format_func=lambda key: APP_CONFIG["models"][key].display_name,
-        help="Choosing the model automatically determines its size."
+        help=get_text("help_choose_model")
     )
     selected_model = APP_CONFIG["models"][model_key]
         
     precision = st.selectbox(
-        label="Quantization Precision",
+        label=get_text("label_quantization"),
         options=list(BYTES_PER_PARAM.keys()),
-        help="The numerical precision of the model's weights. Lower precision reduces memory usage but may affect quality.",
+        help=get_text("help_quantization"),
     )
     
     tokens_per_req = st.number_input(
-        label="Total Context Size (tokens)",
+        label=get_text("label_context_size"),
         min_value=1,
         step=1,
         value=2048,
-        help="The maximum sequence length (prompt + generation) to be processed per request.",
+        help=get_text("help_context_size"),
     )
     
     # Prefill vs decode split
-    with st.expander("Advanced: Prefill vs Decode"):
+    with st.expander(get_text("label_advanced_prefill")):
         prompt_ratio = st.slider(
-            "Prompt tokens (%)",
+            get_text("label_prompt_ratio"),
             min_value=10,
             max_value=90,
             value=50,
-            help="Percentage of tokens that are input (prefill) vs generated (decode).",
+            help=get_text("help_prompt_ratio"),
         )
         prompt_tokens = int(tokens_per_req * prompt_ratio / 100)
         generated_tokens = tokens_per_req - prompt_tokens
-        st.caption(f"Prompt: {prompt_tokens} tokens, Generated: {generated_tokens} tokens")
+        st.caption(get_text("text_prompt_tokens", prompt_tokens=prompt_tokens, generated_tokens=generated_tokens))
         
         # Calculate effective tokens for throughput
         effective_tokens = calculate_effective_tokens(prompt_tokens, generated_tokens)
-        st.caption(f"Effective tokens for throughput: {effective_tokens:.0f}")
+        st.caption(get_text("text_effective_tokens", effective_tokens=effective_tokens))
 
     # --- Section 3: Choose Hardware and Batching Strategy ---
-    st.subheader("3. Choose Hardware and Batching Strategy")
+    st.subheader(get_text("section_hardware"))
     
     gpu_key = st.selectbox(
-        label="Choose a GPU Type",
+        label=get_text("label_choose_gpu"),
         options=list(APP_CONFIG["gpus"].keys()),
         format_func=lambda key: APP_CONFIG["gpus"][key].display_name,
-        help="The hardware on which the model will run."
+        help=get_text("help_choose_gpu")
     )
     selected_gpu = APP_CONFIG["gpus"][gpu_key]
     
@@ -391,39 +449,48 @@ def main():
     )
     if not can_fit:
         st.error(
-            f"⚠️ **Warning**: This model ({model_mem:.1f} GB) won't fit on a single "
-            f"{selected_gpu.display_name} ({selected_gpu.vram_gb} GB VRAM). "
-            "You'll need model parallelism or a larger GPU."
+            get_text("warning_model_too_large", 
+                    model_mem=model_mem, 
+                    gpu_name=selected_gpu.display_name, 
+                    gpu_vram=selected_gpu.vram_gb)
         )
     
     max_batch = st.number_input(
-        label="Maximum Batch Size",
+        label=get_text("label_batch_size"),
         min_value=1,
         step=1,
         value=8,
-        help="The number of user requests processed simultaneously in a single batch.",
+        help=get_text("help_batch_size"),
     )
     
+    # Get batching strategy options
+    batching_options = {
+        "Static Batching": get_text("option_static_batching"),
+        "Continuous Batching": get_text("option_continuous_batching"),
+        "Dynamic Batching": get_text("option_dynamic_batching"),
+    }
+    
     batching_strategy = st.selectbox(
-        label="Batching Strategy",
-        options=["Static Batching", "Continuous Batching", "Dynamic Batching"],
-        help="Different strategies for batching requests. Continuous batching is most efficient.",
+        label=get_text("label_batching_strategy"),
+        options=list(batching_options.keys()),
+        format_func=lambda x: batching_options[x],
+        help=get_text("help_batching_strategy"),
     )
 
     # Memory overhead slider in advanced settings
-    with st.expander("Advanced Settings"):
+    with st.expander(get_text("label_advanced_settings")):
         memory_overhead = st.slider(
-            "Memory Overhead (%)", 
+            get_text("label_memory_overhead"), 
             min_value=0, 
             max_value=50, 
             value=20,
-            help="Extra memory for the framework (vLLM, TGI, etc.), CUDA kernels, and buffers."
+            help=get_text("help_memory_overhead")
         )
 
     st.markdown("---")
 
     # --- Calculation and Results Display ---
-    if st.button("🚀 Calculate Required GPUs", type="primary", use_container_width=True):
+    if st.button(get_text("button_calculate"), type="primary", use_container_width=True):
         
         # Use effective tokens if prefill/decode split is considered
         effective_tokens_value = None
@@ -451,48 +518,32 @@ def main():
         )
         
         if speed_constraint == float("inf"):
-            st.error(
-                "**Impossible Configuration.** The requested throughput per user is too high for a single GPU "
-                "with the current setup. Try reducing the batch size, choosing a more powerful GPU, "
-                "or lowering the required throughput."
-            )
+            st.error(get_text("error_impossible_config"))
         else:
             required_gpus = max(mem_constraint, speed_constraint)
             
-            st.success(f"### Estimated Number of GPUs Required: **{ceil(required_gpus)}**")
+            st.success(get_text("success_gpus_required", gpu_count=ceil(required_gpus)))
             
             # Show efficiency warnings
             if required_gpus < 1 and batching_strategy == "Static Batching":
-                st.info(
-                    "💡 **Tip**: You're using less than 1 GPU worth of compute. "
-                    "Consider using Continuous Batching for better efficiency or serving multiple model instances."
-                )
+                st.info(get_text("tip_underutilized"))
             
             if max_batch > 32:
-                st.warning(
-                    "⚠️ **Large batch size**: Batch sizes > 32 may lead to diminishing returns "
-                    "and increased latency. Consider reducing if latency is important."
-                )
+                st.warning(get_text("warning_large_batch"))
             
-            st.write("The calculation is based on the maximum of the following two constraints:")
+            st.write(get_text("text_calculation_based_on"))
             
             col1, col2 = st.columns(2)
             with col1:
-                st.info(
-                    f"**Memory Constraint:** `{mem_constraint:.2f}` GPUs\n\n"
-                    "This is the minimum number of GPUs required to store the model and its caches."
-                )
+                st.info(get_text("info_memory_constraint", constraint=mem_constraint))
             
             with col2:
-                st.info(
-                    f"**Speed Constraint:** `{speed_constraint:.2f}` GPUs\n\n"
-                    "This is the number of GPUs required to meet the token throughput demand."
-                )
+                st.info(get_text("info_speed_constraint", constraint=speed_constraint))
             
             if mem_constraint > speed_constraint:
-                st.warning("📊 The bottleneck is **VRAM Memory**. The GPUs will be underutilized in terms of computation.")
+                st.warning(get_text("warning_memory_bottleneck"))
             else:
-                st.warning("⚡ The bottleneck is **computation speed (FLOPS)**. The VRAM will be underutilized.")
+                st.warning(get_text("warning_compute_bottleneck"))
             
             # Show latency metrics if requested
             if show_latency and 'prompt_tokens' in locals():
@@ -505,19 +556,20 @@ def main():
                     gpu_tps, prompt_tokens, generated_tokens, max_batch
                 )
                 
-                st.markdown("### Latency Estimates")
+                st.markdown(get_text("heading_latency_estimates"))
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("Time to First Token", f"{latency_metrics['ttft_ms']:.1f} ms")
+                    st.metric(get_text("metric_ttft"), get_text("units_ms", value=latency_metrics['ttft_ms']))
                 with col2:
-                    st.metric("Time per Token", f"{latency_metrics['time_per_token_ms']:.1f} ms")
+                    st.metric(get_text("metric_time_per_token"), get_text("units_ms", value=latency_metrics['time_per_token_ms']))
                 with col3:
-                    st.metric("Total Generation Time", f"{latency_metrics['total_time_s']:.2f} s")
+                    st.metric(get_text("metric_total_generation"), get_text("units_seconds", value=latency_metrics['total_time_s']))
                 
                 if latency_metrics['ttft_ms'] > target_ttft:
                     st.warning(
-                        f"⏱️ TTFT ({latency_metrics['ttft_ms']:.1f} ms) exceeds target ({target_ttft} ms). "
-                        "Consider reducing batch size or prompt length."
+                        get_text("warning_ttft_exceeded", 
+                                actual_ttft=latency_metrics['ttft_ms'], 
+                                target_ttft=target_ttft)
                     )
 
 
