@@ -1,0 +1,44 @@
+{
+  "A100_40gb": {
+    "display_name": "NVIDIA A100 (40GB)",
+    "vram_gb": 40,
+    "flops_tflops": {
+      "8 bits (int8/fp8)": 624,
+      "16 bits (fp16)": 312,
+      "32 bits (fp32)": 19.5
+    },
+    "meta": {
+      "spec_source": "https://www.techpowerup.com/gpu-specs/a100-sxm4-40-gb.c3506",
+      "cost_buy_usd": 10000,
+      "cost_rent_monthly_usd": 600
+    }
+  },
+  "A100_80gb": {
+    "display_name": "NVIDIA A100 (80GB)",
+    "vram_gb": 80,
+    "flops_tflops": {
+      "8 bits (int8/fp8)": 624,
+      "16 bits (fp16)": 312,
+      "32 bits (fp32)": 19.5
+    },
+    "meta": {
+      "spec_source": "https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/pdf/nvidia-a100-datasheet-nvidia-us-2188504-web.pdf",
+      "cost_buy_usd": 15000,
+      "cost_rent_monthly_usd": 800
+    }
+  },
+  "H100_80gb": {
+    "display_name": "NVIDIA H100 (80GB)",
+    "vram_gb": 80,
+    "flops_tflops": {
+      "8 bits (int8/fp8)": 3958,
+      "16 bits (fp16)": 1979,
+      "32 bits (fp32)": 60
+    },
+    "meta": {
+      "spec_source": "https://www.nvidia.com/en-us/data-center/h100/",
+      "cost_buy_usd": 30000,
+      "cost_rent_monthly_usd": 1500
+    }
+  }
+}

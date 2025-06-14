@@ -1,0 +1,18 @@
+{
+  "Llama-3.1-8B-Instruct": {
+    "display_name": "Llama 3.1 8B Instruct",
+    "size_b_params": 8.0,
+    "embed_dim": 4096,
+    "meta": {
+      "source": "https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct"
+    }
+  },
+  "Llama-3.1-70B-Instruct": {
+    "display_name": "Llama 3.1 70B Instruct",
+    "size_b_params": 70.0,
+    "embed_dim": 8192,
+    "meta": {
+      "source": "https://huggingface.co/meta-llama/Meta-Llama-3.1-70B-Instruct"
+    }
+  }
+}
