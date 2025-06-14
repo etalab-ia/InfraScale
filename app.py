@@ -265,10 +265,15 @@ def calculate_latency_metrics(
     """
     # Time to first token (prefill time)
     # Prefill is faster, we estimate 10x speedup
-    ttft = prompt_tokens / (tps_per_gpu * batch_size * 10)
+    # tps_per_gpu is tokens/second for the entire GPU
+    # For a single sequence in the batch, divide by batch_size
+    tps_per_sequence = tps_per_gpu / batch_size
     
-    # Time per output token during decode
-    time_per_token = 1 / (tps_per_gpu * batch_size)
+    # Prefill processes all prompt tokens at once, with 10x speedup
+    ttft = prompt_tokens / (tps_per_sequence * 10)
+    
+    # Time per output token during decode (no speedup, sequential generation)
+    time_per_token = 1 / tps_per_sequence
     
     # Total generation time
     total_time = ttft + (generated_tokens * time_per_token)
@@ -301,34 +306,32 @@ def main():
 
     # --- Section 1: Define Your Workload ---
     st.subheader("1. Define Your Workload")
-    col1, col2 = st.columns(2)
     
-    with col1:
-        users = st.number_input(
-            label="Number of Concurrent Users",
-            min_value=1,
-            step=1,
-            value=100,
-            help="The total number of users the system must serve simultaneously.",
-        )
-        tps_per_user = st.number_input(
-            label="Throughput per User (tokens/s)",
-            min_value=1,
-            step=1,
-            value=10,
-            help="The required token generation speed for each user.",
-        )
+    users = st.number_input(
+        label="Number of Concurrent Users",
+        min_value=1,
+        step=1,
+        value=100,
+        help="The total number of users the system must serve simultaneously.",
+    )
     
-    with col2:
-        # Optional latency requirements
-        show_latency = st.checkbox("Show latency calculations", value=False)
-        if show_latency:
-            target_ttft = st.number_input(
-                label="Target Time to First Token (ms)",
-                min_value=10,
-                value=200,
-                help="Maximum acceptable time to receive the first token.",
-            )
+    tps_per_user = st.number_input(
+        label="Throughput per User (tokens/s)",
+        min_value=1,
+        step=1,
+        value=10,
+        help="The required token generation speed for each user.",
+    )
+    
+    # Optional latency requirements
+    show_latency = st.checkbox("Show latency calculations", value=False)
+    if show_latency:
+        target_ttft = st.number_input(
+            label="Target Time to First Token (ms)",
+            min_value=10,
+            value=200,
+            help="Maximum acceptable time to receive the first token.",
+        )
 
     # --- Section 2: Select Your Model ---
     st.subheader("2. Select Your Model")
@@ -346,72 +349,66 @@ def main():
         help="The numerical precision of the model's weights. Lower precision reduces memory usage but may affect quality.",
     )
     
-    col1, col2 = st.columns(2)
-    with col1:
-        tokens_per_req = st.number_input(
-            label="Total Context Size (tokens)",
-            min_value=1,
-            step=1,
-            value=2048,
-            help="The maximum sequence length (prompt + generation) to be processed per request.",
-        )
+    tokens_per_req = st.number_input(
+        label="Total Context Size (tokens)",
+        min_value=1,
+        step=1,
+        value=2048,
+        help="The maximum sequence length (prompt + generation) to be processed per request.",
+    )
     
-    with col2:
-        # Prefill vs decode split
-        with st.expander("Advanced: Prefill vs Decode"):
-            prompt_ratio = st.slider(
-                "Prompt tokens (%)",
-                min_value=10,
-                max_value=90,
-                value=50,
-                help="Percentage of tokens that are input (prefill) vs generated (decode).",
-            )
-            prompt_tokens = int(tokens_per_req * prompt_ratio / 100)
-            generated_tokens = tokens_per_req - prompt_tokens
-            st.caption(f"Prompt: {prompt_tokens} tokens, Generated: {generated_tokens} tokens")
-            
-            # Calculate effective tokens for throughput
-            effective_tokens = calculate_effective_tokens(prompt_tokens, generated_tokens)
-            st.caption(f"Effective tokens for throughput: {effective_tokens:.0f}")
+    # Prefill vs decode split
+    with st.expander("Advanced: Prefill vs Decode"):
+        prompt_ratio = st.slider(
+            "Prompt tokens (%)",
+            min_value=10,
+            max_value=90,
+            value=50,
+            help="Percentage of tokens that are input (prefill) vs generated (decode).",
+        )
+        prompt_tokens = int(tokens_per_req * prompt_ratio / 100)
+        generated_tokens = tokens_per_req - prompt_tokens
+        st.caption(f"Prompt: {prompt_tokens} tokens, Generated: {generated_tokens} tokens")
+        
+        # Calculate effective tokens for throughput
+        effective_tokens = calculate_effective_tokens(prompt_tokens, generated_tokens)
+        st.caption(f"Effective tokens for throughput: {effective_tokens:.0f}")
 
     # --- Section 3: Choose Hardware and Batching Strategy ---
     st.subheader("3. Choose Hardware and Batching Strategy")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        gpu_key = st.selectbox(
-            label="Choose a GPU Type",
-            options=list(APP_CONFIG["gpus"].keys()),
-            format_func=lambda key: APP_CONFIG["gpus"][key].display_name,
-            help="The hardware on which the model will run."
-        )
-        selected_gpu = APP_CONFIG["gpus"][gpu_key]
-        
-        # Check if model fits on single GPU
-        can_fit, model_mem = check_single_gpu_fit(
-            selected_model, selected_gpu, precision
-        )
-        if not can_fit:
-            st.error(
-                f"⚠️ **Warning**: This model ({model_mem:.1f} GB) won't fit on a single "
-                f"{selected_gpu.display_name} ({selected_gpu.vram_gb} GB VRAM). "
-                "You'll need model parallelism or a larger GPU."
-            )
+    gpu_key = st.selectbox(
+        label="Choose a GPU Type",
+        options=list(APP_CONFIG["gpus"].keys()),
+        format_func=lambda key: APP_CONFIG["gpus"][key].display_name,
+        help="The hardware on which the model will run."
+    )
+    selected_gpu = APP_CONFIG["gpus"][gpu_key]
     
-    with col2:
-        max_batch = st.number_input(
-            label="Maximum Batch Size",
-            min_value=1,
-            step=1,
-            value=8,
-            help="The number of user requests processed simultaneously in a single batch.",
+    # Check if model fits on single GPU
+    can_fit, model_mem = check_single_gpu_fit(
+        selected_model, selected_gpu, precision
+    )
+    if not can_fit:
+        st.error(
+            f"⚠️ **Warning**: This model ({model_mem:.1f} GB) won't fit on a single "
+            f"{selected_gpu.display_name} ({selected_gpu.vram_gb} GB VRAM). "
+            "You'll need model parallelism or a larger GPU."
         )
-        
-        batching_strategy = st.selectbox(
-            label="Batching Strategy",
-            options=["Static Batching", "Continuous Batching", "Dynamic Batching"],
-            help="Different strategies for batching requests. Continuous batching is most efficient.",
-        )
+    
+    max_batch = st.number_input(
+        label="Maximum Batch Size",
+        min_value=1,
+        step=1,
+        value=8,
+        help="The number of user requests processed simultaneously in a single batch.",
+    )
+    
+    batching_strategy = st.selectbox(
+        label="Batching Strategy",
+        options=["Static Batching", "Continuous Batching", "Dynamic Batching"],
+        help="Different strategies for batching requests. Continuous batching is most efficient.",
+    )
 
     # Memory overhead slider in advanced settings
     with st.expander("Advanced Settings"):
