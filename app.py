@@ -132,27 +132,29 @@ def calculate_kv_cache_memory(
     model: ModelConfig,
     max_batch_size: int,
     tokens_per_request: int,
-    precision: str
+    precision: str,
+    concurrent_users: int
 ) -> float:
     """
     Calculates KV cache memory more accurately.
     
-    Formula: 2 * num_layers * batch_size * seq_len * hidden_dim * bytes_per_param
+    Formula: 2 * num_layers * concurrent_users * seq_len * hidden_dim * bytes_per_param
     The 2 comes from K and V (Key and Value)
+    
+    Note: We use concurrent_users instead of batch_size because KV cache must be maintained
+    for all active sequences, even when using batching strategies.
     """
     bytes_per_param = BYTES_PER_PARAM[precision]
     bytes_to_gb = 2**30
     
-    # Estimate number of layers based on model size
-    # Rule of thumb: sqrt(size_in_billions) * 8
-    estimated_layers = int(model.size_b_params**0.5 * 8)
-    
+    model_layers = get_model_layers(model)
+        
     kv_cache_bytes = (
         2 *  # K and V
-        estimated_layers *
-        max_batch_size *
-        tokens_per_request *
+        model_layers *
         model.embed_dim *
+        concurrent_users *
+        tokens_per_request *
         bytes_per_param
     )
     
@@ -199,6 +201,7 @@ def calculate_memory_constraint(
     max_batch_size: int,
     tokens_per_request: int,
     memory_overhead_percent: float = 20,
+    concurrent_users: int = 1,
 ) -> float:
     """
     Calculates the number of GPUs required to satisfy the VRAM memory constraint.
@@ -220,7 +223,7 @@ def calculate_memory_constraint(
 
     # Memory for the KV Cache (more accurate calculation)
     kv_cache_mem_gb = calculate_kv_cache_memory(
-        model, max_batch_size, tokens_per_request, precision
+        model, max_batch_size, tokens_per_request, precision, concurrent_users
     )
 
     # Apply memory overhead
@@ -514,6 +517,7 @@ def main():
             max_batch_size=max_batch,
             tokens_per_request=tokens_per_req,
             memory_overhead_percent=memory_overhead,
+            concurrent_users=users,
         )
 
         speed_constraint = calculate_speed_constraint(
