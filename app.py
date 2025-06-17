@@ -84,7 +84,6 @@ def load_app_config():
     Loads GPU and Model configurations from JSON files in the 'db' directory.
     Uses dataclasses to structure the loaded data.
     """
-    #path is ./db/gpu.json and ./db/models.json
     db_path = Path(__file__).parent / "db"
     config = {"gpus": {}, "models": {}}
 
