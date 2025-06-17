@@ -64,6 +64,7 @@ class ModelConfig:
     display_name: str
     size_b_params: float
     embed_dim: int
+    n_layers: int
     meta: dict
 
 # --- Constants ---
@@ -115,6 +116,15 @@ def load_app_config():
         return None
         
     return config
+
+# --- Model Configuration ---
+
+def get_model_layers(model: ModelConfig) -> int:
+    """
+    Get the number of hidden layers for a model, 
+    we estimate it from the model size if not provided.
+    """
+    return model.n_layers if model.n_layers else int(model.size_b_params**0.5 * 8)
 
 # --- KV Cache Calculation ---
 

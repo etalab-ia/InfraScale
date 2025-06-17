@@ -3,6 +3,7 @@
     "display_name": "Llama 3.1 8B Instruct",
     "size_b_params": 8.0,
     "embed_dim": 4096,
+    "n_layers": 32,
     "meta": {
       "source": "https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct"
     }
@@ -11,8 +12,36 @@
     "display_name": "Llama 3.1 70B Instruct",
     "size_b_params": 70.0,
     "embed_dim": 8192,
+    "n_layers": 80,
     "meta": {
       "source": "https://huggingface.co/meta-llama/Meta-Llama-3.1-70B-Instruct"
+    }
+  },
+  "Mistral-3.1-24B": {
+    "display_name": "Mistral Small 3.1 24B",
+    "size_b_params": 24.0,
+    "embed_dim": 5120,
+    "n_layers": 40,
+    "meta": {
+      "source": "https://huggingface.co/mistralai/Mistral-Small-3.1-24B-Base-2503"
+    }
+  },
+  "Deepseek-R1-Qwen-3-8B": {
+    "display_name": "Qwen 3 8B (Deepseek R1 post-training)",
+    "size_b_params": 8.19,
+    "embed_dim": 4096,
+    "n_layers": 36,
+    "meta": {
+      "source": "https://huggingface.co/deepseek-ai/DeepSeek-R1-0528-Qwen3-8B"
+    }
+  },
+  "Gemma-3-27B": {
+    "display_name": "Gemma 3 27B",
+    "size_b_params": 27.4,
+    "embed_dim": 5376,
+    "n_layers": 0,
+    "meta": {
+      "source": "https://huggingface.co/google/gemma-3-27b-it"
     }
   }
 }
