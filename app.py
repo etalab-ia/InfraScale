@@ -3,6 +3,10 @@ from pathlib import Path
 import json
 from dataclasses import dataclass
 from math import ceil
+import logging
+
+logging.basicConfig(filename='infrascale.log', level=logging.INFO)
+logger = logging.getLogger("infrascale")
 
 from language import load_translations, get_text
 from memory_constraint import calculate_memory_constraint, BYTES_PER_PARAM
@@ -13,11 +17,13 @@ from speed_constraint import (
     GPU_EFFICIENCY_FACTORS
 )
 
+
 @dataclass
 class GpuConfig:
     display_name: str
     vram_gb: int
     flops_tflops: dict[str, float]
+    bandwidth_tbps: float
     meta: dict
 
 @dataclass
@@ -133,6 +139,18 @@ def main():
     st.markdown("---")
 
     if st.button(get_text("button_calculate"), type="primary", use_container_width=True):
+
+        speed_constraint = calculate_speed_constraint(
+            users=users,
+            target_throughput=tps_per_user,
+            max_batch_size=max_batch,
+            model=selected_model,
+            gpu=selected_gpu,
+            precision=precision,
+            batching_strategy=batching_strategy,
+            effective_tokens_per_request=effective_tokens,
+        )
+
         mem_constraint = calculate_memory_constraint(
             model=selected_model,
             gpu=selected_gpu,
@@ -141,17 +159,7 @@ def main():
             tokens_per_request=tokens_per_req,
             memory_overhead_percent=memory_overhead,
             concurrent_users=users,
-        )
-
-        speed_constraint = calculate_speed_constraint(
-            users=users,
-            tps_per_user=tps_per_user,
-            max_batch_size=max_batch,
-            model=selected_model,
-            gpu=selected_gpu,
-            precision=precision,
-            batching_strategy=batching_strategy,
-            effective_tokens_per_request=effective_tokens,
+            speed_constraint=speed_constraint,
         )
 
         if speed_constraint == float("inf"):
