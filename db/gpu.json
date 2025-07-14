@@ -7,6 +7,7 @@
       "16 bits (fp16)": 312,
       "32 bits (fp32)": 19.5
     },
+    "bandwidth_tbps": 1.935,
     "meta": {
       "spec_source": "https://www.techpowerup.com/gpu-specs/a100-sxm4-40-gb.c3506",
       "cost_buy_usd": 10000,
@@ -21,6 +22,7 @@
       "16 bits (fp16)": 312,
       "32 bits (fp32)": 19.5
     },
+    "bandwidth_tbps": 1.935,
     "meta": {
       "spec_source": "https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/pdf/nvidia-a100-datasheet-nvidia-us-2188504-web.pdf",
       "cost_buy_usd": 15000,
@@ -35,6 +37,7 @@
       "16 bits (fp16)": 1979,
       "32 bits (fp32)": 60
     },
+    "bandwidth_tbps": 3.35,
     "meta": {
       "spec_source": "https://www.nvidia.com/en-us/data-center/h100/",
       "cost_buy_usd": 30000,
