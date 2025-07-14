@@ -16,7 +16,7 @@ def calculate_with_dynamic_batching(total_rounds_needed, rounds_per_gpu):
 def calculate_effective_tokens(prompt_tokens, generated_tokens):
     return prompt_tokens / 10 + generated_tokens
 
-def calculate_speed_constraint(users, target_throughput, max_batch_size, model, gpu, precision, batching_strategy="Static Batching", effective_tokens_per_request=None):
+def calculate_speed_constraint(users, target_throughput, max_batch_size, prompt_size, output_size, model, gpu, precision, batching_strategy="Static Batching", effective_tokens_per_request=None):
     # for a given batch, we need to compute:
     # - the time to generate the first token (prefill), linked to flops and bandwidth
     # - the time to generate the rest of the tokens (decode), linked to flops and bandwidth
@@ -26,8 +26,8 @@ def calculate_speed_constraint(users, target_throughput, max_batch_size, model, 
     gpu_flops = gpu_flops * 10**12
     gpu_bandwidth = gpu.bandwidth_tbps 
     gpu_bandwidth = gpu_bandwidth * 10**12
-    generated_tokens = 100 #TODO
-    prompt_size = 1024 #TODO
+    generated_tokens = output_size
+    #prompt_size = prompt_size
 
     #something looks wrong in the modelization of prefill and decode, maybe the formula is outdated. TODO
     flops_prefill = 2 * max_batch_size * model.n_layers * prompt_size * model.embed_dim * (2*model.embed_dim + prompt_size) #TODO
@@ -35,7 +35,7 @@ def calculate_speed_constraint(users, target_throughput, max_batch_size, model, 
     time_prefill = max(flops_prefill / gpu_flops, mm_prefill / gpu_bandwidth)
 
     #this formula is the classical approximation of flops for a decode step, but it looks outdated too. TODO
-    flops_decode_one_token = max_batch_size * model.size_b_params * 2 * 1e9 / 1e12 #TODO
+    flops_decode_one_token = max_batch_size * model.size_b_params * 2 * 1e9 #TODO
     mm_params = model.size_b_params*10**9
     mm_kv_read = 2 * max_batch_size * prompt_size * model.embed_dim
     mm_kv_write = 2 * max_batch_size * model.embed_dim

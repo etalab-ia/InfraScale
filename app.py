@@ -144,6 +144,8 @@ def main():
             users=users,
             target_throughput=tps_per_user,
             max_batch_size=max_batch,
+            prompt_size=prompt_tokens,
+            output_size=generated_tokens,
             model=selected_model,
             gpu=selected_gpu,
             precision=precision,
