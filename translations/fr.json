@@ -1,5 +1,5 @@
 {
-    "app_title": "Calculateur de GPU pour Inférence LLM",
+    "app_title": "Infrascale : Calculateur de GPU pour Inférence LLM",
     "app_description": "Estimez le nombre de GPUs nécessaires pour servir un modèle de langage (LLM) en utilisant différentes stratégies de traitement par lots.",
     
     "section_workload": "1. Définir votre charge de travail",

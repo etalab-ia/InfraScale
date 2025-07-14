@@ -1,5 +1,5 @@
 {
-    "app_title": "LLM Inference GPU Calculator",
+    "app_title": "Infrascale: LLM Inference GPU Calculator",
     "app_description": "Estimate the number of GPUs required to serve a Large Language Model (LLM) using various batching strategies.",
     
     "section_workload": "1. Define Your Workload",
