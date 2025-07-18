@@ -39,7 +39,7 @@
     "display_name": "Gemma 3 27B",
     "size_b_params": 27.4,
     "embed_dim": 5376,
-    "n_layers": 0,
+    "n_layers": 60,
     "meta": {
       "source": "https://huggingface.co/google/gemma-3-27b-it"
     }
