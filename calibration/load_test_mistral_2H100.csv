@@ -1,0 +1,6 @@
+model_tested,gpu,number_concurrent_requests,avg_time_to_first_token,95_percentile_time_to_first_token,end_to_end_latency,95_percentile_end_to_end_latency,avg_output_length,avg_tokens_per_second,percentage_failed_requests
+mistralai/Mistral-Small-3.1-24B-Instruct-2503,2-H100,1,0.3,0.3,4.63,4.63,1047.2,49.13,0.0
+mistralai/Mistral-Small-3.1-24B-Instruct-2503,2-H100,10,0.42,0.44,6.21,13.58,1514.86,47.09,0.0
+mistralai/Mistral-Small-3.1-24B-Instruct-2503,2-H100,100,2.76,2.83,10.88,21.78,1624.7,26.59,0.0
+mistralai/Mistral-Small-3.1-24B-Instruct-2503,2-H100,1000,46.14,93.43,56.13,104.73,1661.41,8.75,0.22
+mistralai/Mistral-Small-3.1-24B-Instruct-2503,2-H100,10000,54.1,106.91,63.56,114.72,1555.41,7.78,88.79

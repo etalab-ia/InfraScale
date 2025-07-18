@@ -1,0 +1,6 @@
+model_tested,gpu,number_concurrent_requests,avg_time_to_first_token,95_percentile_time_to_first_token,end_to_end_latency,95_percentile_end_to_end_latency,avg_output_length,avg_tokens_per_second,percentage_failed_requests
+llama-8b-load-test,1-A100,1,0.2,0.2,4.8,4.8,1721.6,72.05,0.0
+llama-8b-load-test,1-A100,10,0.34,0.42,5.22,9.77,1840.76,64.54,0.0
+llama-8b-load-test,1-A100,100,2.32,3.39,7.73,14.91,1509.72,33.51,0.0
+llama-8b-load-test,1-A100,1000,32.79,66.57,39.84,74.52,1444.66,10.32,0.02
+llama-8b-load-test,1-A100,10000,54.13,107.64,61.04,114.35,1384.78,7.43,84.42

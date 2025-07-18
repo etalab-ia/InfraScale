@@ -1,0 +1,13 @@
+model_tested;gpu;number_concurrent_requests;avg_time_to_first_token;95_percentile_time_to_first_token;end_to_end_latency;95_percentile_end_to_end_latency;avg_output_length;avg_tokens_per_second;percentage_failed_requests
+mistral-load-test;1-A100;100;3.46;5.05;15.8;35.38;1498.32;17.81;0.0
+mistral-load-test;1-A100;200;7.86;21.16;23.69;47.09;1679.67;14.02;0.0
+mistral-load-test;1-A100;300;15.77;38.35;32.05;63.8;1664.25;11.39;0.0
+mistral-load-test;1-A100;400;25.33;56.75;42.26;79.71;1685.68;9.6;0.0
+mistral-load-test;1-A100;500;33.93;74.13;51.0;96.99;1709.03;8.5;0.0
+mistral-load-test;1-A100;600;43.46;93.19;60.74;113.19;1700.46;7.46;0.0
+mistral-load-test;1-A100;700;52.69;108.82;69.93;129.74;1685.78;6.79;0.0
+mistral-load-test;1-A100;800;59.84;122.79;76.73;143.54;1640.63;6.26;0.0
+mistral-load-test;1-A100;900;66.79;136.67;83.56;156.72;1633.56;5.87;0.0
+mistral-load-test;1-A100;1000;78.31;158.88;95.7;178.68;1684.94;5.48;0.0
+mistral-load-test;1-A100;2000;166.07;326.83;183.39;345.91;1658.48;3.39;0.0
+mistral-load-test;1-A100;10000;285.58;552.4;302.94;571.4;1644.8;2.32;67.21
