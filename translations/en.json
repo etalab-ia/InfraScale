@@ -3,6 +3,7 @@
     "app_description": "Estimate the number of GPUs required to serve a Large Language Model (LLM) using various batching strategies.",
     
     "section_workload": "1. Define Your Workload",
+    "text_workload_explanation": "The number of concurrent users is the number of users that will be served simultaneously. For example, if you have given access to your app to 10000 users, the number of concurrent users may be for example 10% of them, i.e. 1000 concurrent users.",
     "label_concurrent_users": "Number of Concurrent Users",
     "help_concurrent_users": "The total number of users the system must serve simultaneously.",
     "label_throughput_per_user": "Throughput per User (tokens/s)",

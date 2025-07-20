@@ -3,6 +3,7 @@
     "app_description": "Estimez le nombre de GPUs nécessaires pour servir un modèle de langage (LLM) en utilisant différentes stratégies de traitement par lots.",
     
     "section_workload": "1. Définir votre charge de travail",
+    "text_workload_explanation": "Le nombre d'utilisateurs simultanés est le nombre d'utilisateurs que le système doit servir simultanément. Par exemple, si vous avez donné accès à votre application à 10000 utilisateurs, le nombre d'utilisateurs simultanés peut être par exemple 10% d'entre eux, c'est-à-dire 1000 utilisateurs simultanés.",
     "label_concurrent_users": "Nombre d'utilisateurs simultanés",
     "help_concurrent_users": "Le nombre total d'utilisateurs que le système doit servir simultanément.",
     "label_throughput_per_user": "Débit par utilisateur (tokens/s)",

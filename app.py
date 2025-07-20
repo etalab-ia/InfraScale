@@ -61,7 +61,7 @@ def check_single_gpu_fit(model, gpu, precision, memory_overhead_percent=20):
     return model_mem_gb <= gpu.vram_gb, model_mem_gb
 
 def main():
-    st.set_page_config(page_title="GpuCalculator", page_icon="💻")
+    st.set_page_config(page_title="Infrascale", page_icon="💻")
     if "language" not in st.session_state:
         st.session_state.language = "en"
     if "translations" not in st.session_state:
@@ -81,6 +81,7 @@ def main():
     st.markdown("---")
 
     st.subheader(get_text("section_workload"))
+    st.markdown(get_text("text_workload_explanation"))
     users = st.number_input(get_text("label_concurrent_users"), min_value=1, value=100)
     tps_per_user = st.number_input(get_text("label_throughput_per_user"), min_value=1, value=10)
 
