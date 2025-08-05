@@ -1,0 +1,7 @@
+model_tested,gpu,number_concurrent_requests,avg_time_to_first_token,95_percentile_time_to_first_token,end_to_end_latency,95_percentile_end_to_end_latency,avg_output_length,avg_tokens_per_second,percentage_failed_requests,avg_token_count,p5_tokens_per_second,std_time_to_first_token,std_end_to_end_latency,std_output_length,std_tokens_per_second,std_percentage_failed_requests,std_token_count
+meta-llama/Llama-3.1-8B-Instruct,2-H100,10,0.86,1.38,4.82,9.37,1687.8,97.94,0.0,357.24,81.07,0.51,1.04,218.19,10.83,0.0,58.7
+meta-llama/Llama-3.1-8B-Instruct,2-H100,50,0.63,1.37,4.58,9.7,1525.81,82.38,0.8,322.74,64.57,0.33,0.53,288.44,6.04,1.6,58.39
+meta-llama/Llama-3.1-8B-Instruct,2-H100,100,0.89,1.22,5.37,11.28,1519.25,69.96,0.2,317.87,55.61,0.64,0.67,91.77,4.15,0.4,15.98
+meta-llama/Llama-3.1-8B-Instruct,2-H100,200,2.19,6.1,7.09,14.41,1453.53,64.01,0.1,310.6,57.85,0.68,1.06,143.32,2.59,0.2,29.78
+meta-llama/Llama-3.1-8B-Instruct,2-H100,400,7.49,17.25,12.84,24.6,1500.39,59.69,0.05,318.79,54.24,0.56,0.71,45.88,0.71,0.1,10.07
+meta-llama/Llama-3.1-8B-Instruct,2-H100,600,14.26,30.52,19.86,36.75,1481.21,57.55,1.23,317.78,40.38,1.44,1.56,37.27,2.67,1.97,5.77

@@ -1,0 +1,6 @@
+model_tested,gpu,number_concurrent_requests,avg_time_to_first_token,95_percentile_time_to_first_token,end_to_end_latency,95_percentile_end_to_end_latency,avg_output_length,avg_tokens_per_second,percentage_failed_requests
+google/gemma-3-27b-it,2-H100,1,0.93,0.93,18.25,18.25,3237.6,41.34,0.0
+google/gemma-3-27b-it,2-H100,10,0.46,0.47,16.81,40.07,2873.78,35.36,0.0
+google/gemma-3-27b-it,2-H100,100,3.02,3.13,24.29,57.92,2725.78,21.38,0.0
+google/gemma-3-27b-it,2-H100,1000,37.16,101.82,59.97,115.24,2281.77,10.33,60.06
+google/gemma-3-27b-it,2-H100,10000,38.79,100.97,62.36,114.2,2354.12,10.2,96.21
