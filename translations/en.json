@@ -25,16 +25,9 @@
     "text_prompt_tokens": "Prompt: {prompt_tokens} tokens, Generated: {generated_tokens} tokens",
     "text_effective_tokens": "Effective tokens for throughput: {effective_tokens:.0f}",
     
-    "section_hardware": "3. Choose Hardware and Batching Strategy",
+    "section_hardware": "3. Choose Hardware",
     "label_choose_gpu": "Choose a GPU Type",
     "help_choose_gpu": "The hardware on which the model will run.",
-    "label_batch_size": "Maximum Batch Size",
-    "help_batch_size": "The number of user requests processed simultaneously in a single batch.",
-    "label_batching_strategy": "Batching Strategy",
-    "help_batching_strategy": "Different strategies for batching requests. Continuous batching is most efficient.",
-    "option_static_batching": "Static Batching",
-    "option_continuous_batching": "Continuous Batching",
-    "option_dynamic_batching": "Dynamic Batching",
     
     "label_advanced_settings": "Advanced Settings",
     "label_memory_overhead": "Memory Overhead (%)",
@@ -52,10 +45,11 @@
     "error_impossible_config": "**Impossible Configuration.** The requested throughput per user is too high for a single GPU with the current setup. Try reducing the batch size, choosing a more powerful GPU, or lowering the required throughput.",
     
     "success_gpus_required": "### Estimated Number of GPUs Required: **{gpu_count}**",
-    "text_calculation_based_on": "The calculation is based on the maximum of the following two constraints:",
-    "info_memory_constraint": "**Memory Constraint:** `{constraint:.2f}` GPUs\n\nThis is the minimum number of GPUs required to store the model and its caches.",
-    "info_speed_constraint": "**Speed Constraint:** `{constraint:.2f}` GPUs\n\nThis is the number of GPUs required to meet the token throughput demand.",
-    
+    "text_calculation_based_on": "The calculation is based on the product of the number of GPUs per cluster and the number of clusters for a given batch size:",
+    "info_cluster_size": "**GPUs per cluster:** `{constraint:.2f}` GPUs\n\nThis is the number of GPUs to parallelise deployment of a single model instance on.",
+    "info_n_clusters": "**Number of clusters:** `{constraint:.2f}` Clusters\n\nThis is the number of duplicated model instances to serve the number of concurrent users.",
+    "info_batch_size": "**Batch size:** `{constraint:.2f}` requests\n\nThis is the number of requests to process simultaneously for a given model instance.",
+
     "tip_underutilized": "💡 **Tip**: You're using less than 1 GPU worth of compute. Consider using Continuous Batching for better efficiency or serving multiple model instances.",
     "warning_large_batch": "⚠️ **Large batch size**: Batch sizes > 32 may lead to diminishing returns and increased latency. Consider reducing if latency is important.",
     "warning_memory_bottleneck": "📊 The bottleneck is **VRAM Memory**. The GPUs will be underutilized in terms of computation.",

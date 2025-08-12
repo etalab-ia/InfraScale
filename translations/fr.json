@@ -25,16 +25,9 @@
     "text_prompt_tokens": "Prompt : {prompt_tokens} tokens, Générés : {generated_tokens} tokens",
     "text_effective_tokens": "Tokens effectifs pour le débit : {effective_tokens:.0f}",
     
-    "section_hardware": "3. Choisir le matériel et la stratégie de traitement",
+    "section_hardware": "3. Choisir le matériel",
     "label_choose_gpu": "Choisir un type de GPU",
     "help_choose_gpu": "Le matériel sur lequel le modèle sera exécuté.",
-    "label_batch_size": "Taille maximale du batch",
-    "help_batch_size": "Le nombre de requêtes utilisateur traitées simultanément dans un seul batch.",
-    "label_batching_strategy": "Stratégie de traitement par lots",
-    "help_batching_strategy": "Différentes stratégies pour traiter les requêtes. Le traitement continu est le plus efficace.",
-    "option_static_batching": "Traitement statique",
-    "option_continuous_batching": "Traitement continu",
-    "option_dynamic_batching": "Traitement dynamique",
     
     "label_advanced_settings": "Paramètres avancés",
     "label_memory_overhead": "Surcharge mémoire (%)",
@@ -52,10 +45,11 @@
     "error_impossible_config": "**Configuration impossible.** Le débit demandé par utilisateur est trop élevé pour un seul GPU avec la configuration actuelle. Essayez de réduire la taille du batch, choisir un GPU plus puissant, ou réduire le débit requis.",
     
     "success_gpus_required": "### Nombre estimé de GPUs requis : **{gpu_count}**",
-    "text_calculation_based_on": "Le calcul est basé sur le maximum des deux contraintes suivantes :",
-    "info_memory_constraint": "**Contrainte mémoire :** `{constraint:.2f}` GPUs\n\nC'est le nombre minimum de GPUs requis pour stocker le modèle et ses caches.",
-    "info_speed_constraint": "**Contrainte vitesse :** `{constraint:.2f}` GPUs\n\nC'est le nombre de GPUs requis pour satisfaire la demande de débit en tokens.",
-    
+    "text_calculation_based_on": "Le calcul est basé sur le produit du nombre de GPUs par cluster et du nombre de clusters pour une taille de batch donnée :",
+    "info_cluster_size": "**Nombre de GPUs par cluster :** `{constraint:.2f}` GPUs\n\nC'est le nombre de GPUs sur lesquels paralléliser le déploiement d'une instance du modèle.",
+    "info_n_clusters": "**Nombre de clusters :** `{constraint:.2f}` Clusters\n\nC'est le nombre d'instances du modèle à servir pour satisfaire la demande de débit en tokens.",
+    "info_batch_size": "**Taille du batch :** `{constraint:.2f}` requêtes\n\nC'est le nombre de requêtes à traiter simultanément pour une instance du modèle.",
+
     "tip_underutilized": "💡 **Conseil** : Vous utilisez moins d'un GPU de calcul. Envisagez d'utiliser le traitement continu pour une meilleure efficacité ou de servir plusieurs instances du modèle.",
     "warning_large_batch": "⚠️ **Grande taille de batch** : Les tailles de batch > 32 peuvent entraîner des rendements décroissants et une latence accrue. Envisagez de réduire si la latence est importante.",
     "warning_memory_bottleneck": "📊 Le goulot d'étranglement est la **mémoire VRAM**. Les GPUs seront sous-utilisés en termes de calcul.",
