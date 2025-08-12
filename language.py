@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 import streamlit as st
 
+LANGUAGES = {"en": "🇬🇧 English", "fr": "🇫🇷 Français"}
+
 @st.cache_data
 def load_translations():
     translations = {}

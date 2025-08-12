@@ -8,8 +8,8 @@ import logging
 logging.basicConfig(filename='infrascale.log', level=logging.INFO)
 logger = logging.getLogger("infrascale")
 
-from language import load_translations, get_text
-from memory_constraint import calculate_memory_constraint, BYTES_PER_PARAM
+from language import load_translations, get_text, LANGUAGES
+from memory_constraint import calculate_memory_constraint, calculate_weights_constraint, BYTES_PER_PARAM
 from speed_constraint import (
     calculate_speed_constraint,
     calculate_latency_metrics,
@@ -68,8 +68,7 @@ def main():
         st.session_state.translations = load_translations()
 
     with st.sidebar:
-        languages = {"en": "🇬🇧 English", "fr": "🇫🇷 Français"}
-        st.selectbox("Language / Langue", list(languages.keys()), format_func=lambda x: languages[x], key="language")
+        st.selectbox("Language / Langue", list(LANGUAGES.keys()), format_func=lambda x: LANGUAGES[x], key="language")
 
     APP_CONFIG = load_app_config()
     if not APP_CONFIG:
