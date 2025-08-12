@@ -16,6 +16,7 @@ from speed_constraint import (
     calculate_effective_tokens,
     GPU_EFFICIENCY_FACTORS
 )
+from solver import InfrascaleSolver
 
 
 @dataclass
@@ -112,26 +113,14 @@ def main():
     gpu_key = st.selectbox(
         get_text("label_choose_gpu"),
         options=list(APP_CONFIG["gpus"].keys()),
-        format_func=lambda k: APP_CONFIG["gpus"][k].display_name
+        format_func=lambda k: APP_CONFIG["gpus"][k].display_name,
+        key="H100_80gb"
     )
     selected_gpu = APP_CONFIG["gpus"][gpu_key]
 
     can_fit, model_mem = check_single_gpu_fit(selected_model, selected_gpu, precision)
     if not can_fit:
         st.error(get_text("warning_model_too_large", model_mem=model_mem, gpu_name=selected_gpu.display_name, gpu_vram=selected_gpu.vram_gb))
-
-    max_batch = st.number_input(get_text("label_batch_size"), min_value=1, value=8)
-
-    batching_options = {
-        "Static Batching": get_text("option_static_batching"),
-        "Continuous Batching": get_text("option_continuous_batching"),
-        "Dynamic Batching": get_text("option_dynamic_batching"),
-    }
-    batching_strategy = st.selectbox(
-        get_text("label_batching_strategy"),
-        list(batching_options.keys()),
-        format_func=lambda x: batching_options[x]
-    )
 
     with st.expander(get_text("label_advanced_settings")):
         memory_overhead = st.slider(get_text("label_memory_overhead"), min_value=0, max_value=50, value=20)
@@ -140,73 +129,52 @@ def main():
 
     if st.button(get_text("button_calculate"), type="primary", use_container_width=True):
 
-        speed_constraint = calculate_speed_constraint(
-            users=users,
-            target_throughput=tps_per_user,
-            max_batch_size=max_batch,
-            prompt_size=prompt_tokens,
-            output_size=generated_tokens,
-            model=selected_model,
-            gpu=selected_gpu,
-            precision=precision,
-            batching_strategy=batching_strategy,
-            effective_tokens_per_request=effective_tokens,
-        )
+        params = {
+            'users': users,
+            'target_speed': tps_per_user,
+            'model_b_params': selected_model.size_b_params,
+            'model_layers': selected_model.n_layers,
+            'model_dim': selected_model.embed_dim,
+            'bytes_per_param': BYTES_PER_PARAM[precision],
+            'tokens_per_request': tokens_per_req,
+            'memory_overhead_percent': memory_overhead,
+            'prompt_size': prompt_tokens,
+            'efficiency_factor': 0.85,
+            'gpu_vram_gb': selected_gpu.vram_gb,
+            'gpu_flops': selected_gpu.flops_tflops[precision],
+            'gpu_bandwidth': selected_gpu.bandwidth_tbps,
+            'gpu_efficiency_factor'	: GPU_EFFICIENCY_FACTORS[precision],
+        }
 
-        mem_constraint = calculate_memory_constraint(
-            model=selected_model,
-            gpu=selected_gpu,
-            precision=precision,
-            max_batch_size=max_batch,
-            tokens_per_request=tokens_per_req,
-            memory_overhead_percent=memory_overhead,
-            concurrent_users=users,
-            speed_constraint=speed_constraint,
-        )
+        solver = InfrascaleSolver(**params)
 
-        if speed_constraint == float("inf"):
-            st.error(get_text("error_impossible_config"))
-        else:
-            required_gpus = max(mem_constraint, speed_constraint)
-            st.success(get_text("success_gpus_required", gpu_count=ceil(required_gpus)))
+        cluster_size, n_clusters, batch_size = solver.compute_GPU_needs()
+        metrics = solver.get_metrics(cluster_size, n_clusters)
 
-            if required_gpus < 1 and batching_strategy == "Static Batching":
-                st.info(get_text("tip_underutilized"))
-            if max_batch > 32:
-                st.warning(get_text("warning_large_batch"))
+        required_gpus = cluster_size * n_clusters
+        st.success(get_text("success_gpus_required", gpu_count=required_gpus))
 
-            st.write(get_text("text_calculation_based_on"))
-            col1, col2 = st.columns(2)
+        st.write(get_text("text_calculation_based_on"))
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.info(get_text("info_cluster_size", constraint=cluster_size))
+        with col2:
+            st.info(get_text("info_n_clusters", constraint=n_clusters))
+        with col3:
+            st.info(get_text("info_batch_size", constraint=batch_size))
+            
+        if show_latency:
+            st.markdown(get_text("heading_latency_estimates"))
+            col1, col2, col3 = st.columns(3)
             with col1:
-                st.info(get_text("info_memory_constraint", constraint=mem_constraint))
+                st.metric(get_text("metric_ttft"), get_text("units_ms", value=metrics['tpot']))
             with col2:
-                st.info(get_text("info_speed_constraint", constraint=speed_constraint))
+                st.metric(get_text("metric_time_per_token"), get_text("units_ms", value=metrics['tpot']))
+            with col3:
+                st.metric(get_text("metric_total_generation"), get_text("units_seconds", value=metrics['tpot'] * effective_tokens))
 
-            if mem_constraint > speed_constraint:
-                st.warning(get_text("warning_memory_bottleneck"))
-            else:
-                st.warning(get_text("warning_compute_bottleneck"))
-
-            if show_latency:
-                effective_gpu_flops = selected_gpu.flops_tflops[precision] * GPU_EFFICIENCY_FACTORS[precision]
-                flops_per_token = selected_model.size_b_params * 2 * 1e9 / 1e12
-                gpu_tps = effective_gpu_flops / flops_per_token
-
-                latency_metrics = calculate_latency_metrics(
-                    gpu_tps, prompt_tokens, generated_tokens, max_batch
-                )
-
-                st.markdown(get_text("heading_latency_estimates"))
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric(get_text("metric_ttft"), get_text("units_ms", value=latency_metrics['ttft_ms']))
-                with col2:
-                    st.metric(get_text("metric_time_per_token"), get_text("units_ms", value=latency_metrics['time_per_token_ms']))
-                with col3:
-                    st.metric(get_text("metric_total_generation"), get_text("units_seconds", value=latency_metrics['total_time_s']))
-
-                if latency_metrics['ttft_ms'] > target_ttft:
-                    st.warning(get_text("warning_ttft_exceeded", actual_ttft=latency_metrics['ttft_ms'], target_ttft=target_ttft))
+            if metrics['tpot'] > target_ttft:
+                st.warning(get_text("warning_ttft_exceeded", actual_ttft=metrics['tpot'], target_ttft=target_ttft))
 
 if __name__ == "__main__":
     main()

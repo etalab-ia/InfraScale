@@ -1,31 +1,37 @@
 import logging
-from math import ceil, floor
+from math import ceil, floor, log
 from utils import GPU_EFFICIENCY_FACTORS, BYTES_PER_PARAM
 
 logger = logging.getLogger("infrascale")
 
-def calculate_with_static_batching(total_rounds_needed, rounds_per_gpu):
-    return total_rounds_needed / rounds_per_gpu
+def calculate_with_static_batching(throughput):
+    return throughput
 
-def calculate_with_continuous_batching(total_rounds_needed, rounds_per_gpu):
-    return total_rounds_needed / rounds_per_gpu / 1.8
+def calculate_with_continuous_batching(throughput):
+    return throughput / 1.8
 
-def calculate_with_dynamic_batching(total_rounds_needed, rounds_per_gpu):
-    return total_rounds_needed / rounds_per_gpu / 1.3
+def calculate_with_dynamic_batching(throughput):
+    return throughput / 1.3
 
 def calculate_effective_tokens(prompt_tokens, generated_tokens):
     return prompt_tokens / 10 + generated_tokens
 
-def calculate_speed_constraint(users, target_throughput, max_batch_size, prompt_size, output_size, model, gpu, precision, batching_strategy="Static Batching", effective_tokens_per_request=None):
+def calculate_calibrated_tpot(time_decode_one_token, users, batch_size, model_params):
+    k = 24e9/model_params
+    recalibration_factor = k**(-1/(k+1))
+    return time_decode_one_token / recalibration_factor * log(min(users, batch_size)+30,10)
+
+def calculate_speed_constraint(users, target_throughput, max_batch_size, prompt_size, output_size, model, gpu, precision, batching_strategy="Static Batching", effective_tokens_per_request=None, target_ttft=1, weights_constraint=1):
     # for a given batch, we need to compute:
     # - the time to generate the first token (prefill), linked to flops and bandwidth
     # - the time to generate the rest of the tokens (decode), linked to flops and bandwidth
     # and then deduce 1) the resulting throughput, assuming 100 outputs tokens per request
     # 2) the number of sequential rounds that hold in the GPU while still maintining a throughput greater than expected tps_per_user
+    cluster_efficiency = 1 + 0.85 * (weights_constraint - 1)
     gpu_flops = gpu.flops_tflops[precision] * GPU_EFFICIENCY_FACTORS[precision] #todo
-    gpu_flops = gpu_flops * 10**12
+    gpu_flops = gpu_flops * 10**12 * cluster_efficiency
     gpu_bandwidth = gpu.bandwidth_tbps 
-    gpu_bandwidth = gpu_bandwidth * 10**12
+    gpu_bandwidth = gpu_bandwidth * 10**12 * cluster_efficiency
     generated_tokens = output_size
     #prompt_size = prompt_size
 
@@ -42,24 +48,16 @@ def calculate_speed_constraint(users, target_throughput, max_batch_size, prompt_
     mm_decode_one_token = BYTES_PER_PARAM[precision] * (mm_params + mm_kv_read + mm_kv_write) #TODO
     time_decode_one_token = max(flops_decode_one_token / gpu_flops, mm_decode_one_token / gpu_bandwidth)
 
-    total_time = time_prefill + (generated_tokens - 1) * time_decode_one_token
+    tpot = calculate_calibrated_tpot(time_decode_one_token, users, max_batch_size, model.size_b_params)
 
-    throughput_batch = generated_tokens / total_time
+    throughput = 1 / tpot
+    
+    # ttft_constraint = time_prefill / target_ttft #TODO
 
-    logger.info(f"Throughput per GPU for 1 batch : {throughput_batch:.2f} tokens/sec")
+    logger.info(f"Throughput per GPU cluster : {throughput:.2f} tokens/sec")
 
-    if throughput_batch < target_throughput:
+    if throughput < target_throughput:
         return float("inf")
-
-    rounds_per_gpu = floor(throughput_batch / target_throughput)
-    #if not rounds_per_gpu:
-    #    return float("inf")
-
-    logger.info(f"Rounds per GPU: {rounds_per_gpu}")
-    logger.info(f"Throughput for last round: {throughput_batch / rounds_per_gpu:.2f} tokens/sec")
-
-    total_rounds_needed = ceil(users / max_batch_size)
-    logger.info(f"Total rounds needed: {total_rounds_needed}")
 
     strategy_fn = {
         "Static Batching": calculate_with_static_batching,
@@ -67,7 +65,9 @@ def calculate_speed_constraint(users, target_throughput, max_batch_size, prompt_
         "Dynamic Batching": calculate_with_dynamic_batching,
     }.get(batching_strategy, calculate_with_static_batching)
 
-    return strategy_fn(total_rounds_needed, rounds_per_gpu)
+    throughput_constraint = target_throughput / strategy_fn(throughput)
+
+    return throughput_constraint * weights_constraint
 
 def calculate_latency_metrics(tps_per_gpu, prompt_tokens, generated_tokens, batch_size):
     tps_per_sequence = tps_per_gpu / batch_size
