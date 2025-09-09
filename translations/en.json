@@ -9,9 +9,11 @@
     "label_throughput_per_user": "Throughput per User (tokens/s)",
     "help_throughput_per_user": "The required token generation speed for each user.",
     "label_show_latency": "Show latency calculations",
-    "label_target_ttft": "Target Time to First Token (ms)",
+    "text_min_ttft": "The minimum time to the first token is {min_ttft:.1f} s.",
+    "label_target_ttft": "Target Time to First Token (s)",
     "help_target_ttft": "Maximum acceptable time to receive the first token.",
-    
+    "warning_target_ttft_too_small": "⚠️ **Target Time to First Token too small** : The target ({target_ttft} s) is too small. Consider quantizing the model, using more powerful GPUs, reducing the prompt length, or increasing the target time to first token.",
+
     "section_model": "2. Select Your Model",
     "label_choose_model": "Choose a Model",
     "help_choose_model": "Choosing the model automatically determines its size.",

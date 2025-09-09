@@ -9,14 +9,9 @@ logging.basicConfig(filename='infrascale.log', level=logging.INFO)
 logger = logging.getLogger("infrascale")
 
 from language import load_translations, get_text, LANGUAGES
-from memory_constraint import calculate_memory_constraint, calculate_weights_constraint, BYTES_PER_PARAM
-from speed_constraint import (
-    calculate_speed_constraint,
-    calculate_latency_metrics,
-    calculate_effective_tokens,
-    GPU_EFFICIENCY_FACTORS
-)
+from utils import BYTES_PER_PARAM, GPU_EFFICIENCY_FACTORS
 from solver import InfrascaleSolver
+from constraints import calculate_speed_constants
 
 
 @dataclass
@@ -61,6 +56,15 @@ def check_single_gpu_fit(model, gpu, precision, memory_overhead_percent=20):
     model_mem_gb *= (1 + memory_overhead_percent / 100)
     return model_mem_gb <= gpu.vram_gb, model_mem_gb
 
+def calculate_effective_tokens(prompt_tokens, generated_tokens):
+    return prompt_tokens / 10 + generated_tokens
+
+def get_min_ttft(**kwargs):
+    if len(kwargs) == 0:
+        return 2
+    kwargs['max_wait'] = 1000
+    return calculate_speed_constants(7, **kwargs)[1]
+
 def main():
     st.set_page_config(page_title="Infrascale", page_icon="💻")
     if "language" not in st.session_state:
@@ -85,9 +89,9 @@ def main():
     users = st.number_input(get_text("label_concurrent_users"), min_value=1, value=100)
     tps_per_user = st.number_input(get_text("label_throughput_per_user"), min_value=1, value=10)
 
-    show_latency = st.checkbox(get_text("label_show_latency"), value=False)
-    if show_latency:
-        target_ttft = st.number_input(get_text("label_target_ttft"), min_value=10, value=200)
+    params = {} if "params" not in st.session_state else st.session_state.params
+
+    target_ttft = st.number_input(get_text("label_target_ttft"), min_value=1, value=5)
 
     st.subheader(get_text("section_model"))
     model_key = st.selectbox(
@@ -127,54 +131,61 @@ def main():
 
     st.markdown("---")
 
+    params = {
+        'users': users,
+        'target_speed': tps_per_user,
+        'model_b_params': selected_model.size_b_params,
+        'model_layers': selected_model.n_layers,
+        'model_dim': selected_model.embed_dim,
+        'bytes_per_param': BYTES_PER_PARAM[precision],
+        'tokens_per_request': tokens_per_req,
+        'memory_overhead_percent': memory_overhead,
+        'prompt_size': prompt_tokens,
+        'efficiency_factor': 0.85,
+        'gpu_vram_gb': selected_gpu.vram_gb,
+        'gpu_flops': selected_gpu.flops_tflops[precision],
+        'gpu_bandwidth': selected_gpu.bandwidth_tbps,
+        'gpu_efficiency_factor'	: GPU_EFFICIENCY_FACTORS[precision],
+        'max_wait': target_ttft
+    }
+
+    solver = InfrascaleSolver(logger, **params)
+
+    min_ttft = get_min_ttft(**params)
+    if target_ttft < min_ttft:
+        st.warning(get_text("warning_target_ttft_too_small", target_ttft=target_ttft))
+        st.stop()
+
     if st.button(get_text("button_calculate"), type="primary", use_container_width=True):
 
-        params = {
-            'users': users,
-            'target_speed': tps_per_user,
-            'model_b_params': selected_model.size_b_params,
-            'model_layers': selected_model.n_layers,
-            'model_dim': selected_model.embed_dim,
-            'bytes_per_param': BYTES_PER_PARAM[precision],
-            'tokens_per_request': tokens_per_req,
-            'memory_overhead_percent': memory_overhead,
-            'prompt_size': prompt_tokens,
-            'efficiency_factor': 0.85,
-            'gpu_vram_gb': selected_gpu.vram_gb,
-            'gpu_flops': selected_gpu.flops_tflops[precision],
-            'gpu_bandwidth': selected_gpu.bandwidth_tbps,
-            'gpu_efficiency_factor'	: GPU_EFFICIENCY_FACTORS[precision],
-        }
+        results = solver.solve()
+        cluster_size, n_clusters, batch_size, queue_size = results.x
+        # metrics = solver.get_metrics(cluster_size, n_clusters)
 
-        solver = InfrascaleSolver(**params)
-
-        cluster_size, n_clusters, batch_size = solver.compute_GPU_needs()
-        metrics = solver.get_metrics(cluster_size, n_clusters)
-
-        required_gpus = cluster_size * n_clusters
+        required_gpus = ceil(cluster_size) * ceil(n_clusters)
         st.success(get_text("success_gpus_required", gpu_count=required_gpus))
 
         st.write(get_text("text_calculation_based_on"))
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.info(get_text("info_cluster_size", constraint=cluster_size))
+            st.info(get_text("info_cluster_size", constraint=ceil(cluster_size)))
         with col2:
-            st.info(get_text("info_n_clusters", constraint=n_clusters))
+            st.info(get_text("info_n_clusters", constraint=ceil(n_clusters)))
         with col3:
-            st.info(get_text("info_batch_size", constraint=batch_size))
+            st.info(get_text("info_batch_size", constraint=2**batch_size))
             
-        if show_latency:
-            st.markdown(get_text("heading_latency_estimates"))
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric(get_text("metric_ttft"), get_text("units_ms", value=metrics['tpot']))
-            with col2:
-                st.metric(get_text("metric_time_per_token"), get_text("units_ms", value=metrics['tpot']))
-            with col3:
-                st.metric(get_text("metric_total_generation"), get_text("units_seconds", value=metrics['tpot'] * effective_tokens))
+        # if show_latency:
+        #     st.markdown(get_text("heading_latency_estimates"))
+        #     col1, col2, col3 = st.columns(3)
+        #     with col1:
+        #         st.metric(get_text("metric_ttft"), get_text("units_ms", value=metrics['tpot']))
+        #     with col2:
+        #         st.metric(get_text("metric_time_per_token"), get_text("units_ms", value=metrics['tpot']))
+        #     with col3:
+        #         st.metric(get_text("metric_total_generation"), get_text("units_seconds", value=metrics['tpot'] * effective_tokens))
 
-            if metrics['tpot'] > target_ttft:
-                st.warning(get_text("warning_ttft_exceeded", actual_ttft=metrics['tpot'], target_ttft=target_ttft))
+        #     if metrics['tpot'] > target_ttft:
+        #         st.warning(get_text("warning_ttft_exceeded", actual_ttft=metrics['tpot'], target_ttft=target_ttft))
 
 if __name__ == "__main__":
     main()
