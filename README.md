@@ -2,6 +2,11 @@
 
 Infrascale is a tool developed by the Albert API team to estimate GPU requirements to do LLM inference at scale. It makes estimations within a 10% error margin for models between 8b and 27b and for node sizes lower than 8.
 
+## Why InfraScale?
+
+While working within the French public administration, we realized that nearly every organization faces the same question: how many GPUs are needed to reliably serve a given number of users?
+Operating the official GenAI API for the government, we confronted this challenge firsthand. To plan for the near future—scaling to 2.5 million public agents—we needed a way to benchmark and compare different approaches (e.g., commercial services versus self-hosted open-weight models). InfraScale was born from this necessity.
+
 ## Quickstart
 
 - Create and activate a python virtual environment
