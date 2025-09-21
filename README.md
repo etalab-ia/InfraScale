@@ -5,7 +5,7 @@ Infrascale is a tool developed by the Albert API team to estimate GPU requiremen
 ## Why InfraScale?
 
 While working within the French public administration, we realized that nearly every organization faces the same question: how many GPUs are needed to reliably serve a given number of users?
-Operating the official GenAI API for the government, we confronted this challenge firsthand. To plan for the near future—scaling to 2.5 million public agents—we needed a way to benchmark and compare different approaches (e.g., commercial services versus self-hosted open-weight models). InfraScale was born from this necessity.
+Operating [the official GenAI API for the government](https://github.com/etalab-ia/OpenGateLLM), we confronted this challenge firsthand. To plan for the near future—scaling to 2.5 million public agents—we needed a way to benchmark and compare different approaches (e.g., commercial services versus self-hosted open-weight models). InfraScale was born from this necessity.
 
 ## Quickstart
 
